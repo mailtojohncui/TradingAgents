@@ -212,6 +212,22 @@ def test_an_empty_quote_feed_falls_back_to_the_articles_search_tags_with_the_sym
 
 
 @pytest.mark.unit
+def test_a_quote_feed_that_fails_falls_back_to_search(monkeypatch):
+    # Yahoo's quote feed can raise "Yahoo Finance is currently down" while its
+    # search still answers; the search's tagged articles are served instead.
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
+    searched = _ticker_with([], monkeypatch, search_news=[_tagged("ABOUT AAPL", today, "AAPL")])
+
+    def down(self, count=20):
+        raise RuntimeError("*** YAHOO! FINANCE IS CURRENTLY DOWN! ***")
+
+    monkeypatch.setattr(ynews.yf.Ticker, "get_news", down)
+    out = ynews.get_news_yfinance("AAPL", today, today)
+    assert searched == ["AAPL"]
+    assert "ABOUT AAPL" in out
+
+
+@pytest.mark.unit
 def test_a_quote_feed_with_articles_is_not_searched(monkeypatch):
     today = datetime.now(UTC).strftime("%Y-%m-%d")
     searched = _ticker_with([_tagged("FEED", today)], monkeypatch)
